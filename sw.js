@@ -1,5 +1,5 @@
 // يحفظ نسخة من البرنامج ليعمل دون اتصال، ويحدّثها في الخلفية عند توفر الإنترنت
-const CACHE = 'report-maker-v2';
+const CACHE = 'report-maker-v3';
 const FILES = ['./', './index.html'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
