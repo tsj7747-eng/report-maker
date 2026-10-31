@@ -369,6 +369,20 @@ function licBoot(device, start, gate){ return Promise.all([idbGet('licCode'), id
   return (key ? Promise.resolve(verifyKey(code, key)).catch(function(){ return false; }) : Promise.resolve(false)).then(function(ok){ if (!ok) { gate(device); licOldBox(device, start); return; } LIC = {code:code, key:key};
     return licCall(code, key, device, false).catch(function(){ return {}; }).then(function(r){ if (r.moved) return licMoved(code, key, device, start); start(); licButton(); }); }); }); }
 
+// شريط التحديث: يبقى ظاهرًا حتى يضغط المستخدم «تحديث الآن»، والبيانات المحفوظة لا تتأثر
+function watchUpdates(ver){
+  if (location.protocol !== 'https:') return;
+  var show = function(v){ if (document.getElementById('appUpd')) return; var s = document.createElement('style');
+    s.textContent = '#appUpd{position:fixed;inset:auto 0 0 0;z-index:9999;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;background:#0f6e56;color:#fff;padding:12px 14px calc(12px + env(safe-area-inset-bottom));font:600 14px inherit;font-family:inherit;direction:rtl;box-shadow:0 -2px 10px rgba(0,0,0,.25)}#appUpd button{font:700 14px inherit;font-family:inherit;background:#fff;color:#0f6e56;border:0;border-radius:8px;padding:8px 16px;cursor:pointer}@media print{#appUpd{display:none!important}}'; document.head.appendChild(s);
+    var b = document.createElement('div'); b.id = 'appUpd'; b.setAttribute('role', 'status'); b.innerHTML = '<span>يوجد تحديث جديد. بياناتك محفوظة.</span><button type="button">تحديث الآن</button>'; document.body.appendChild(b);
+    b.querySelector('button').onclick = function(e){ e.target.disabled = true; e.target.textContent = 'جارٍ التحديث…';
+      var go = function(){ location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash); };
+      Promise.all([window.caches ? caches.keys().then(function(k){ return Promise.all(k.map(function(x){ return caches.delete(x); })); }) : 0,
+        navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function(r){ return Promise.all(r.map(function(x){ return x.unregister(); })); }) : 0]).catch(function(){}).then(go); }; };
+  var check = function(){ fetch('version.json?t=' + Date.now(), {cache:'no-store'}).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){ if (j && j.v && j.v !== ver) show(j.v); }).catch(function(){}); };
+  check(); setInterval(check, 6e5); document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') check(); });
+}
+
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 
@@ -379,6 +393,7 @@ async function copyText(s) {
 
 async function boot() {
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  watchUpdates('1.1');
   const device = await deviceCode();
   $('boot').hidden = true;
   return licBoot(device, startApp, showGate);
